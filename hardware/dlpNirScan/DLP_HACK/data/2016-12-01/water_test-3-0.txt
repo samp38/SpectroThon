@@ -1,0 +1,12 @@
+Spctrum acquisition date : 2016-12-01
+*****
+start lambda [nm] : 1350
+end lambda [nm] : 2000
+resolution [nm] : 4.1
+measurement time [ms] : 2338.0
+number of scans averaged : 10
+number of patterns per scan : 160
+srat pixel : 9
+end pixel : 968
+exposure time [us] : 4000
+

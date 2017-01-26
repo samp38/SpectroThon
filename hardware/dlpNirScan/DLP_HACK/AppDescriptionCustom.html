@@ -1,0 +1,1161 @@
+	
+<table id = "menubar" width = "100%" style = "margin-bottom:10px;">
+	<tr>
+		<td  align = "left" id = "banner">
+			<a href = "" onclick='window.open("http://www.ti.com")'><img id= 'logo_img' src='images/TX-instruments-logo.png'></a>
+		</td>
+		<td  align = "center" id = "banner" >
+			<a href = "" onclick='window.open("http://www.ti.com/dlpnirscan")'><img id= 'logo_img' src='images/DLP-NIRscan-logo.png'></a>		</td>
+		<td  align = "right" >
+			<a  id = 'back_link' class = '' href = '#'><img id = 'back_button_img' src= 'images/back-arrow-icon.png'></a><a  id = 'main_menu_link' class = '' href = 'submenu.php?submenu=main_menu&page=0'  ><img id = 'exit_button_img' src= 'images/multi-icon.png'></a><a href = 'submenu.php?submenu=main_menu&page=-1' class = 'hide_link' ><img id = 'next_arrow_img' src= 'images/right-arrow-icon.png'></a>		</td>
+	</tr>
+</table>
+
+	<div id = "descrip_text">
+		<div id ="no_display" style = "display:none;">
+			<h1 style = "color:red;">Sorry</h1>
+			You can't run the GUI application Custom Scan. The system has detected that your embedded system is not connected to a display device.
+		</div>
+		<div id = "running_remotely"  style = "display:none;">
+			<h1 style = "color:yellow;">Warning</h1>
+				You are currently running Matrix remotely and Custom Scan is a GUI based application. <br>
+				After clicking run, look at the display device connected to the embedded system to see and/or interact with the application
+		</div>
+		<div id = "run_application" style= "text-align:center;">
+							
+		</div>
+		<div>
+			<html>
+
+<head>
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<META HTTP-EQUIV="PRAGMA" CONTENT="NO-CACHE">
+
+<script type="text/javascript" src="apps/dlp_nirscan_gui.js"></script>
+
+<script>    
+
+var randomStr = "";
+var exposure_time=1400;
+var start_px=0,end_px=0;
+var lambda_values = new Array();
+var pga_multiplier = 1;
+var graph=document.getElementById("spectrumcanvas");
+var xPadding = 100;
+var yPadding = 50;
+var offset=0;
+var pga_guard_band = 20;//guard band percentage for max value for pga settings calculations
+var scan_readings =  new Array();
+var scan_type;
+
+//Displays the parameter settings
+function view_settings() 
+{
+	//document.getElementById("param_numPatterns").value = "1";
+	read_settings();
+	document.getElementById("description").style.display = 'block';
+	document.getElementById("label1").style.display = 'block';
+	document.getElementById("param_startWavelength").style.display = 'block';
+	document.getElementById("label1_2").style.display = 'block';
+	document.getElementById("param_endWavelength").style.display = 'block';
+	document.getElementById("label_pattern_range").style.display = 'block';
+	document.getElementById("param_numPatterns").style.display = 'block';
+	document.getElementById("label2").style.display = 'block';
+	document.getElementById("param_measurementResolution").style.display = 'block';
+	document.getElementById("label3").style.display = 'block';
+	document.getElementById("param_totalMeasurementTime").style.display = 'block';
+	document.getElementById("label_exposureTime").style.display = 'block';
+	document.getElementById("param_exposureTime").style.display = 'block';
+	document.getElementById("label4").style.display = 'block';
+	document.getElementById("param_numScansToAvg").style.display = 'block';
+	document.getElementById("param_measurementResolution").style.backgroundColor = "grey";
+	document.getElementById("param_totalMeasurementTime").style.backgroundColor = "grey";
+}
+
+
+//Populates the text boxes with the current parameter settings stored in defaultParameters.txt
+function read_settings()
+{
+	filename2 ="defaultParameters.txt";
+	time=0;
+	$.get('read_file.php', {filename: filename2, time :time}, function(data) {
+		data = $.parseJSON(data);
+		data=data.split("\n");
+		document.getElementById("param_startWavelength").value=data.shift();
+		document.getElementById("param_endWavelength").value=data.shift();
+		document.getElementById("param_measurementResolution").value=data.shift();
+		document.getElementById("param_totalMeasurementTime").value=data.shift();
+		document.getElementById("param_numScansToAvg").value=data.shift();
+		document.getElementById("param_numPatterns").value=data.shift();
+		start_px=parseInt(data.shift());
+		end_px=parseInt(data.shift());
+		exposure_time = parseInt(data.shift());
+		if(!isFinite(exposure_time))
+			exposure_time=1400;//use default value if the defaultParameters do not specify the exposure time.
+		document.getElementById("param_exposureTime").value=exposure_time;
+		document.getElementById("param_measurementResolution").value = Math.round(10*(parseFloat(document.getElementById("param_endWavelength").value)-parseFloat(document.getElementById("param_startWavelength").value))/parseInt(document.getElementById("param_numPatterns").value))/10;
+		var input_num_patterns = parseInt(document.getElementById("param_numPatterns").value);
+		var actual_num_patterns =Math.ceil(input_num_patterns/24) + input_num_patterns; 
+		var total_time=(exposure_time/1000)*(parseInt(document.getElementById("param_numScansToAvg").value))*actual_num_patterns;
+		total_time=Math.round(total_time*100)/100;
+		scan_type = data.shift();
+		if(scan_type=="hadamard_scan")
+			document.getElementById("hadamard_scan").checked=true;
+		else
+		{
+			document.getElementById("sequential_scan").checked=true;
+			scan_type="sequential_scan";
+		}
+
+	});
+	filename2="custom_scan_data/reference_scan_data/pga_setting.txt";
+	$.get('read_file.php', {filename: filename2, time :time}, function(data) {
+		data = $.parseJSON(data);
+		data=data.split("\n");
+		data.shift();
+		pga_multiplier= parseInt(data.shift());
+	})
+	.error(function(){
+		pga_multiplier=1;
+	});
+}
+
+//Save the parameter values entered by the user for further use. Write the parameter values to defaultParameter.txt
+function apply_settings()
+{
+var str1=document.getElementById("param_startWavelength").value +"\n"+ document.getElementById("param_endWavelength").value + "\n"+document.getElementById("param_measurementResolution").value + "\n"+document.getElementById("param_totalMeasurementTime").value + "\n"+document.getElementById("param_numScansToAvg").value + "\n"+document.getElementById("param_numPatterns").value +"\n"+start_px + "\n"+end_px+"\n"+exposure_time+"\n"+scan_type+"\n" ;
+filename = "defaultParameters.txt";
+$.post("write_file.php", {a: str1,filename : filename});
+}
+
+function checkPrime(n)
+{
+    var i,isPrime=1;
+    for(i=2;i<=n/2;++i)
+    {
+        if(n%i==0)
+        {
+            isPrime=0;
+            break;
+        }
+    }
+    return isPrime;
+}
+
+function getPaleyOrder(n)
+{
+    //Adjust for splitting hadamard scan
+	n /= 2;
+	
+	n++;
+    if(n%4!=0)
+        n += (4-(n%4));
+
+    while(!checkPrime(n-1))
+        n += 4;
+		
+	//Adjust for cropping first row/column
+	n -= 1;
+
+	//Adjust for splitting hadamard scan
+    return n * 2;
+}
+
+//Generate the scan.sh file to execute selected functionality
+function generate_script_file(flag)
+{
+	var total_scan_time = parseFloat(document.getElementById("param_totalMeasurementTime").value);
+	var outFile= document.getElementById("param_scanFilename").value + ".txt";
+	randomStr = (Math.floor((Math.random()*1000)+1)).toString();
+	var str="exec 1> log.txt\n";
+	var num_patterns=document.getElementById("param_numPatterns").value;
+	var loop_count = document.getElementById("param_numScansToAvg").value;
+	var paleyOrder = getPaleyOrder(num_patterns);
+
+	if(flag==1){
+	//flag=1 -> script to run reference scan
+		var str_pga= "PGA setting : \n"+pga_multiplier;
+		$.post("write_file.php", {a: str_pga,filename : "custom_scan_data/reference_scan_data/pga_setting.txt"});
+
+		str = str + "for i in {1..20}\ndo\n" +
+			    "dlp_nirscan -g"+pga_multiplier+"\n" +
+			    "if [ $? -eq 0 ] ; then\n break\nfi\ndone\n"+
+			    'if [ $i -eq 20 ] ; then\n echo "pga_setting_failed" > tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+
+		str = str + "cd custom_scan_data/reference_scan_data/\n";
+
+		if(scan_type=="hadamard_scan")
+		{
+			str = str + "dlp_nirscan -S"+paleyOrder+" -E"+exposure_time+" -fref_readings.txt -L"+loop_count+"\n"; 
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + 'cd ../..\n';
+			str = str + "dlp_nirscan -mcustom_scan_data/reference_scan_data/avg_readings.txt\n";
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + "mv avg_readings_hadamard.txt custom_scan_data/reference_scan_data/ref_readings_avg.txt\n";
+		}
+		else
+		{
+			str = str + "dlp_nirscan -S"+num_patterns+" -E"+exposure_time+" -fref_readings.txt -L"+loop_count+"\n"; 
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + "mv avg_readings.txt ref_readings_avg.txt\n";
+			str = str + 'cd ../..\n';
+		}
+		
+		str = str +  "rm tmp/*\n";
+		str = str + "#Using a more unique string to detect if the script is completed\n";
+		str = str +  "echo \"_?!!SCRIPT_COMPLETED!!?_\" > tmp/script_status" + randomStr + ".txt";
+	}
+	else if(flag==2)
+	{
+	//flag=2 -> load the patterns 
+		str = str + "cd patterns/\n";
+		str = str + "dlp_nirscan -l"+Math.ceil(parseInt(document.getElementById("param_numPatterns").value)/24)+"\n";
+		str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+		str = str + "cd ..\n";
+	}
+	else if(flag==0||flag==3){
+	//script to run sample scan
+		if(flag==3)
+		{
+			//load bmps when the scan is performed for first time
+			str =str+"count=0\n"+
+				"cd patterns/\n"+
+				"for entry in *\n"+
+				"do\n"+
+					"case $entry in *.bmp)\n"+
+						"count=$((count+1));;\n"+
+					"esac\n"+
+				"done\n"+
+				"dlp_nirscan -l$count\n"+
+				'if [ $? -eq 255 ];\n then\n echo "failed" > ../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n'+
+				"cd ..\n";
+
+			str = str + "for i in {1..20}\ndo\n" +
+				    "dlp_nirscan -g"+pga_multiplier+"\n" +
+				    "if [ $? -eq 0 ] ; then\n break\nfi\ndone\n"+
+				    'if [ $i -eq 20 ] ; then\n echo "pga_setting_failed" > tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+
+		}
+		str = str + "cd custom_scan_data/sample_scan_data/\n";
+
+		if(scan_type=="hadamard_scan")
+		{
+			str = str + "dlp_nirscan -S"+paleyOrder+" -E"+exposure_time+" -f" +outFile+" -L"+loop_count+"\n";
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + 'cd ../..\n';
+			str = str + "dlp_nirscan -mcustom_scan_data/sample_scan_data/avg_readings.txt\n";
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + "mv avg_readings_hadamard.txt custom_scan_data/sample_scan_data/"+document.getElementById("param_scanFilename").value+"_avg.txt\n";
+			str = str + "cd custom_scan_data/sample_scan_data/\n";
+		}
+		else
+		{
+			str = str + "dlp_nirscan -S"+num_patterns+" -E"+exposure_time+" -f" +outFile+" -L"+loop_count+"\n";
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + "mv avg_readings.txt "+document.getElementById("param_scanFilename").value+"_avg.txt\n";
+		}
+		str = str + "dlp_nirscan -G -r../reference_scan_data/ref_readings_avg.txt -f"+document.getElementById("param_scanFilename").value+"_avg.txt\n";
+		str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+		str = str + "cd ..\ncd ..\n";			
+		str = str +  "rm tmp/*\n";
+		str = str + "#Using a more unique string to detect if the script is completed\n";
+		str = str +  "echo \"_?!!SCRIPT_COMPLETED!!?_\" > tmp/script_status" + randomStr + ".txt";
+	}
+	else if(flag==4)//generate and load patterns
+	{
+		var script_morph_bmp = "count=0\n"+
+				   "for entry in *\n"+
+			  	   "do\n"+
+			 		"case $entry in *.bmp)\n"+
+			 	            'convert $entry -virtual-pixel Black  -filter point -interpolate nearestneighbor -distort polynomial "2 $(cat /usr/share/matrix-gui-2.0/calibration_data/control_points.txt)" scan_img.bmp\n'+
+			 	 	    "mv scan_img.bmp $entry\n"+
+			 	 	    "count=$((count+1));;\n"+
+			  	        "esac\n"+
+			  	   "done\n"+
+				   "dlp_nirscan -l$count\n"
+				   'if [ $? -eq 255 ];\n then\n echo "failed" > ../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+	
+		str = str + "rm patterns/*.csv\n";
+		str = str + "rm patterns/*.bmp\n";
+		str = str + "rm patterns/*.sdf\n";
+		str = str +  "rm tmp/*\n";
+		str = str + "rm *.bmp\n";
+		str = str + "echo \"Generating Patterns...\" > tmp/script_status" + randomStr + ".txt\n";
+		if(scan_type=="hadamard_scan")
+			str = str + "dlp_nirscan -A" +  start_px + " -Z" + end_px + " -N" + num_patterns+ " -H\n";
+		else
+			str = str + "dlp_nirscan -A" +  start_px + " -Z" + end_px + " -N" + num_patterns+ "\n";
+		str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+		str = str + "cd patterns/\n";
+		str = str + "echo \"Preparing Scan Solution...\" > ../tmp/script_status" + randomStr + ".txt\n";
+		str = str + "dlp_nirscan -Pscan.sdf\n";
+		str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+		str = str + "echo \"Loading Patterns...\" > ../tmp/script_status" + randomStr + ".txt\n";
+		str = str + script_morph_bmp +"\n";
+		str = str + "cd .. \n";
+		str = str + "#Using a more unique string to detect if the script is completed\n";
+		str = str +  "echo \"_?!!SCRIPT_COMPLETED!!?_\" > tmp/script_status" + randomStr + ".txt";
+	}
+	else if(flag==5)//load patterns and run ref scan with pga multiplier = 1
+	{
+			str =str+"count=0\n"+
+				"cd patterns/\n"+
+				"for entry in *\n"+
+				"do\n"+
+					"case $entry in *.bmp)\n"+
+						"count=$((count+1));;\n"+
+					"esac\n"+
+				"done\n"+
+				"dlp_nirscan -l$count\n"+
+				'if [ $? -eq 255 ];\n then\n echo "failed" > ../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n'+
+				"cd ..\n";
+
+		str = str + "for i in {1..20}\ndo\n" +
+			    "dlp_nirscan -g1"+"\n" +
+			    "if [ $? -eq 0 ] ; then\n break\nfi\ndone\n"+
+			    'if [ $i -eq 20 ] ; then\n echo "pga_setting_failed" > tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+
+		str = str + "cd custom_scan_data/reference_scan_data/\n";
+
+		if(scan_type=="hadamard_scan")
+		{
+			str = str + "dlp_nirscan -S"+paleyOrder+" -E600 -fref_readings.txt -L1\n"; 
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + 'cd ../..\n';
+			str = str + "dlp_nirscan -mcustom_scan_data/reference_scan_data/avg_readings.txt\n";
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + "mv avg_readings_hadamard.txt custom_scan_data/reference_scan_data/ref_readings_avg.txt\n";
+		}
+		else
+		{
+			str = str + "dlp_nirscan -S"+num_patterns+" -E600 -fref_readings.txt -L1\n"; 
+			str = str + 'if [ $? -eq 255 ];\n then\n echo "failed" > ../../tmp/script_status' + randomStr + '.txt\n exit 0\n fi\n';
+			str = str + "mv avg_readings.txt ref_readings_avg.txt\n";
+			str = str + "cd ..\ncd ..\n";
+		}
+	
+		str = str +  "rm tmp/*\n";
+		str = str + "#Using a more unique string to detect if the script is completed\n";
+		str = str +  "echo \"_?!!SCRIPT_COMPLETED!!?_\" > tmp/script_status" + randomStr + ".txt";
+	}
+
+	filename = "scan.sh";
+	$.post("write_file.php", {a: str,filename : filename});
+}
+
+//Run reference scan (Generate scan.sh which contains commands for running reference scan and execute it)
+function run_reference_scan()
+{
+	generate_script_file(1);
+	document.getElementById('setRef_warning').innerHTML="Reference Scan in progress...";
+	document.getElementById('setRef_warning').style.display="block";
+	
+	$.get('run_scan.php',function(data){
+	data = $.parseJSON(data);
+	});
+
+	fail_count=0;
+	var max_numTries=100;
+	check_scan_completed(max_numTries,function onSuccess(){
+
+					document.getElementById('setRef_warning').innerHTML="Reference Scan completed!";
+					document.getElementById("performScan_button").style.background="#006a71";
+					document.getElementById("performScan_button").disabled=false;
+	},
+	function onErr(){
+				alert("Reference scan Failed!");
+				document.getElementById('setRef_warning').innerHTML="Reference Scan Failed...";
+	},
+	function onFailure(data){
+
+		if(data=="failed")
+		{
+					if(confirm("Error!\n View log file..."))
+					{
+						window.open("log.txt");
+					}
+					document.getElementById("setRef_warning").innerHTML="Reference Scan Failed!";
+		}
+		else if(data=="pga_setting_failed")
+		{
+					if(confirm("PGA Setting Failed!\n View log file..."))
+					{
+						window.open("log.txt");
+					}
+					document.getElementById("setRef_warning").innerHTML="PGA Setting Failed!";
+		}
+	});
+}
+
+function set_pga_run_reference_scan()
+{
+	generate_script_file(5);
+	document.getElementById('setRef_warning').innerHTML="Reference Scan in progress...";
+	document.getElementById('setRef_warning').style.display="block";
+	
+	$.get('run_scan.php',function(data){
+	data = $.parseJSON(data);
+	});
+
+	fail_count=0;
+	var max_numTries=10;
+	check_scan_completed(max_numTries,function onSuccess(){
+
+		var filename = "custom_scan_data/reference_scan_data/ref_readings_00_raw.txt";
+		$.get('read_file.php', {filename: filename, time : 0}, function(data) 
+		{	
+			//auto-adjust PGA
+			data = $.parseJSON(data);
+			data = jQuery.trim(data);	
+			var readings=data;
+			var ref_values = new Array();
+			var index=0;
+			var val;
+			var mask = 1 << 1; //mask for bit 1
+			readings=readings.split("\n");
+
+			while(readings.length > 0)
+			{
+				var reading = readings.shift();
+				var res = parseInt(reading.substring(8,10),16);
+				
+				if(res & mask)
+				{
+					ref_values[index]=parseInt(reading.substring(0,8),16);
+					index++;
+				}	
+			}
+
+			var max_ref_val = Math.max.apply(Math,ref_values);
+			max_ref_val = max_ref_val + max_ref_val * (pga_guard_band/100);
+			var multiplier = Math.floor(8388607/max_ref_val); //Max ADC value = 7FFFFF = 8388607
+
+			var i = 6;
+			while(i>=0)
+			{
+				if(multiplier >= Math.pow(2,i) || i==0)
+				{
+					pga_multiplier = Math.pow(2,i);
+					run_reference_scan();
+					break;
+				}
+				i--;
+			}
+
+
+		})
+		.error(function(){
+			pga_multiplier = 1;
+			run_reference_scan();
+		});
+		
+	},
+	function onErr(){
+		if(data=="pga_setting_failed")
+		{
+			if(confirm("PGA Setting Failed!\n View log file..."))
+			{
+				window.open("log.txt");
+			}
+			document.getElementById("setRef_warning").innerHTML="PGA Setting Failed!";
+		}
+		else
+		{
+			if(confirm("Reference Scan Failed!\n View log file..."))
+			{
+				window.open("log.txt");
+			}
+			document.getElementById('setRef_warning').innerHTML="Reference Scan Failed!";
+		}
+	},
+	function onFailure(data){
+		if(data=="pga_setting_failed")
+		{
+			if(confirm("PGA Setting Failed!\n View log file..."))
+			{
+				window.open("log.txt");
+			}
+			document.getElementById("setRef_warning").innerHTML="PGA Setting Failed!";
+		}
+		else
+		{
+			if(confirm("Reference Scan Failed!\n View log file..."))
+			{
+				window.open("log.txt");
+			}
+			document.getElementById('setRef_warning').innerHTML="Reference Scan Failed!";
+		}
+	});
+}
+
+
+
+var fail_count = 0;
+
+//Run sample scan (Generate scan.sh which contains commands for running sample scan and execute it)
+function run_sample_scan(flag)
+{
+		document.getElementById('form1_settingsPage').style.display="none";
+		document.getElementById('form2_displayScanPage').style.display="block";
+		document.getElementById('label_scanInProgress').style.display="block";
+		document.getElementById('runnewscan_button').style.display="none";
+		document.getElementById('label_scanname').style.display="none";
+		document.getElementById('downloadspectrumdata_button').style.display="none";
+		document.getElementById('downloadrawdata_button').style.display="none";
+		if(flag==0)
+		generate_script_file(3);
+		else
+		generate_script_file(0);
+		$.get('run_scan.php',function(data){
+		data = $.parseJSON(data);
+		});
+		fail_count=0;
+	    	document.getElementById('form1_settingsPage').style.display="none";
+		document.getElementById("spectrumcanvas").style.display="none";
+		var max_numTries=100;
+		check_scan_completed(max_numTries,function onSuccess(){
+				show_scan_results();
+				generate_scaninfo_files();
+		},
+		function onErr(){
+				document.getElementById('label_scanInProgress').style.display="none";
+				alert("Failed!");
+		},
+		function onFailure(data){
+					if(confirm("Error!\n View log file..."))
+					{
+						window.open("log.txt");
+					}
+				if(data=="failed")
+					document.getElementById('label_scanInProgress').innerHTML="Sample Scan Error!";
+				else if(data=="pga_setting_failed")
+					document.getElementById('label_scanInProgress').innerHTML="PGA Setting Failed!";
+		});
+}
+
+
+
+
+
+function show_scan_results()
+{
+
+	var filename = document.getElementById('param_scanFilename').value;
+
+	filename="custom_scan_data/sample_scan_data/"+filename+"_avg_absp.txt";
+	show_results(filename, function(){
+				
+		document.getElementById("spectrumcanvas").style.display="block";
+		document.getElementById('runnewscan_button').style.display="block";
+		var sname= document.getElementById("param_scanFilename").value;
+		document.getElementById('label_scanname').innerHTML="Scan Name : "+sname;
+		document.getElementById('label_scanname').style.display="block";
+		document.getElementById('downloadspectrumdata_button').style.display="block";
+		document.getElementById('downloadrawdata_button').style.display="block";
+	});
+}
+
+
+function generate_scaninfo_files()
+{
+var currentdate = new Date(); 
+var datetime =    currentdate.getDate() + "/"
+                + (currentdate.getMonth()+1)  + "/" 
+                + currentdate.getFullYear() + " @ "  
+                + currentdate.getHours() + ":"  
+                + currentdate.getMinutes() + ":" 
+                + currentdate.getSeconds();var currentdate = new Date(); 
+
+	var str = "Method:,"+scan_type+",,\n";
+	str=str+"Host Date-Time:,"+datetime+",,\n";
+	str=str+"Sample Name:,"+document.getElementById("param_scanFilename").value+",,\n";
+	str=str+"Spectral Range Start (nm):,"+document.getElementById("param_startWavelength").value+",,\n";
+	str=str+"Spectral Range End (nm):,"+document.getElementById("param_endWavelength").value+",,\n";
+	str=str+"Number of Wavelength Points:,"+document.getElementById("param_numPatterns").value+",,\n";
+	str=str+"Digital Resolution (nm):,"+document.getElementById("param_measurementResolution").value+",,\n";
+	str=str+"Number of Scans to Average:,"+document.getElementById("param_numScansToAvg").value+",,\n";
+	str=str+"Total Measurement Time (ms):,"+document.getElementById("param_totalMeasurementTime").value+",,\n";
+	str=str+"PGA Gain:,"+pga_multiplier+",,\n";
+	str=str+",,,\n";
+	
+	var num_patterns=parseInt(document.getElementById("param_numPatterns").value);	
+	
+	var absorbance_values;
+	var reference_values;
+	var sample_values;
+	var reference_values_raw;
+	var sample_values_raw;
+
+	filename="custom_scan_data/sample_scan_data/"+document.getElementById("param_scanFilename").value+"_avg_absp.txt";
+	$.get('read_file.php', {filename: filename, time :time}, function(data){
+		data = $.parseJSON(data);
+		absorbance_values = data.split("\n");
+	});
+
+	filename="custom_scan_data/reference_scan_data/"+"ref_readings_avg.txt";
+	$.get('read_file.php', {filename: filename, time :time}, function(data){
+		data = $.parseJSON(data);
+		reference_values = data.split("\n");
+	});
+
+	filename="custom_scan_data/sample_scan_data/"+document.getElementById("param_scanFilename").value+"_avg.txt";
+	$.get('read_file.php', {filename: filename, time :time}, function(data){
+		data = $.parseJSON(data);
+		sample_values = data.split("\n");
+	});
+	
+
+	filename="custom_scan_data/sample_scan_data/"+document.getElementById("param_scanFilename").value+"_00_raw.txt";
+	$.get('read_file.php', {filename: filename, time :time}, function(data){
+		data = $.parseJSON(data);
+		sample_values_raw = data.split("\n");
+	});
+
+	filename="custom_scan_data/reference_scan_data/"+"ref_readings_00_raw.txt";
+	$.get('read_file.php', {filename: filename, time :time}, function(data){
+		data = $.parseJSON(data);
+		reference_values_raw = data.split("\n");
+	});
+
+	setTimeout(function(){write_downloadfiles(str,num_patterns,reference_values,sample_values,absorbance_values,sample_values_raw,reference_values_raw)},2000);
+
+}
+
+function write_downloadfiles(str,num_patterns,reference_values,sample_values,absorbance_values,sample_values_raw,reference_values_raw)
+{	
+	var str_spectrum_data=str+"Wavelength (nm),Absorbance (AU),Reference Signal (unitless),Sample Signal (unitless)\n";
+	var str_raw_data=str+"Pattern,Reference ADC Readings (unitless),Sample ADC Readings (unitless)\n";
+	var pattern_num_ref = new Array();
+	var pattern_num_sample = new Array();
+	var sample_val_raw = new Array();
+	var ref_val_raw = new Array();
+
+	var ref_val,sample_val;
+	for(i=0;i<num_patterns;i++)
+	{	ref_val=parseInt(reference_values.shift(),16);
+		sample_val=parseInt(sample_values.shift(),16);
+		if(sample_val >> 31)
+			sample_val = sample_val - 0x100000000;
+		if(ref_val >> 31)
+			ref_val = ref_val - 0x100000000;
+		str_spectrum_data=str_spectrum_data+Math.round(lambda_values[i]*100)/100+","+Math.round(absorbance_values.shift()*10000)/10000+","+ref_val +","+sample_val+"\n";
+		
+	}
+	
+	filename="custom_scan_data/sample_scan_data/"+document.getElementById("param_scanFilename").value+"_spectrumdata.csv";
+	$.post("write_file.php", {a: str_spectrum_data, filename :filename},function(data) {
+	});
+
+	
+	var pattern_start=0;
+	var change_pattern=0;
+	var pattern_no = 0;
+	var index=0;
+	var i;
+	var mask = 1 << 1; //mask for bit 1
+	num_patterns = num_patterns + Math.ceil(num_patterns/24) + 1;
+
+	length= sample_values_raw.length;
+	for(i=0;i<length;i++)
+	{
+		var reading = sample_values_raw.shift();
+		var res = parseInt(reading.substring(8,10),16);
+		if(res & mask)
+			pattern_start =1;
+		if(pattern_start==1)
+		{
+			if(res & mask)
+			{
+				pattern_num_sample[index]=pattern_no;
+				sample_val_raw[index]=parseInt(reading.substring(0,8),16);
+				index++;
+				change_pattern=1;
+			}
+			else if((res & mask)==0)
+			{
+				if(change_pattern==1)
+				{
+					pattern_no++;
+					change_pattern=0;
+					if(pattern_no==num_patterns)
+						break;
+				}
+			}	
+		}
+	}
+	
+	pattern_start=0;
+	index=0;
+	change_pattern=0;
+	pattern_no=0;
+
+	length= reference_values_raw.length;
+	for(i=0;i<length;i++)
+	{
+		var reading = reference_values_raw.shift();
+		var res = parseInt(reading.substring(8,10),16);
+		if(res & mask)
+			pattern_start =1;
+		if(pattern_start==1)
+		{
+			if(res & mask)
+			{
+				pattern_num_ref[index]=pattern_no;
+				ref_val_raw[index]=parseInt(reading.substring(0,8),16);
+				index++;
+				change_pattern=1;
+			}
+			else if((res & mask)==0)
+			{
+				if(change_pattern==1)
+				{
+					pattern_no++;
+					change_pattern=0;
+					if(pattern_no==num_patterns)
+						break;
+				}
+			}
+		}
+	}
+
+	var ind_ref=0;
+	var ind_sample=0;
+	while(ind_ref<ref_val_raw.length && ind_sample<sample_val_raw.length)
+	{
+		if(pattern_num_ref[ind_ref]==pattern_num_sample[ind_sample])
+		{
+			str_raw_data=str_raw_data+pattern_num_ref[ind_ref]+","+ref_val_raw[ind_ref]+","+sample_val_raw[ind_sample]+"\n";
+			ind_ref++;
+			ind_sample++;
+		}
+		else if(pattern_num_ref[ind_ref]<pattern_num_sample[ind_sample])
+		{
+			str_raw_data=str_raw_data+pattern_num_ref[ind_ref]+","+ref_val_raw[ind_ref]+","+sample_val_raw[ind_sample-1]+"\n";
+			ind_ref++;
+		}
+		else
+		{
+			str_raw_data=str_raw_data+pattern_num_sample[ind_sample]+","+ref_val_raw[ind_ref-1]+","+sample_val_raw[ind_sample]+"\n";
+			ind_sample++;
+		}
+	}
+
+	filename="custom_scan_data/sample_scan_data/"+document.getElementById("param_scanFilename").value+"_rawdata.csv";
+	$.post("write_file.php", {a: str_raw_data, filename :filename},function(data) {
+		document.getElementById("runnewscan_button").style.background="#006a71";
+		document.getElementById("runnewscan_button").disabled=false;
+		document.getElementById('downloadspectrumdata_button').style.background="#006a71";
+		document.getElementById('downloadspectrumdata_button').disabled=false;
+		document.getElementById('downloadrawdata_button').style.background="#006a71";
+		document.getElementById('downloadrawdata_button').disabled=false;
+	});
+
+}	
+
+var scan_count=0;
+var scanname="";
+function run_scan_fun(flag)
+{
+	document.getElementById('label_scanInProgress').innerHTML="Sample Scan In progress...";
+	if(document.getElementById("param_scanFilename").value=='')
+		alert("Enter the output file name");
+	else
+	{
+		if(flag==1)
+		{	
+			scan_count++;
+			document.getElementById("param_scanFilename").value=scanname+"_"+scan_count.toString();
+			document.getElementById("runnewscan_button").style.background="grey";
+			document.getElementById("runnewscan_button").disabled=true;
+			document.getElementById('downloadspectrumdata_button').style.background="grey";
+			document.getElementById('downloadspectrumdata_button').disabled=true;
+			document.getElementById('downloadrawdata_button').style.background="grey";
+			document.getElementById('downloadrawdata_button').disabled=true;
+			run_sample_scan(flag);
+		}
+		else
+		{
+			scan_count=0;
+			scanname=document.getElementById("param_scanFilename").value;
+			//run_sample_scan(flag);
+			var start_lambda = document.getElementById("param_startWavelength").value;
+			var end_lambda = document.getElementById("param_endWavelength").value;
+			var num_patterns=parseInt(document.getElementById("param_numPatterns").value);
+			$.get('read_file.php', {filename: "calibration_data/pixel_coeffs.txt", time : 0 }, function(data){
+				data = $.parseJSON(data);
+				data = data.split("\n");
+
+				var coeffs = new Array();
+				for(var i=0;i<3;i++)
+					coeffs[i]= parseFloat(data.shift());
+			
+				start_px = Math.round(start_lambda*start_lambda*coeffs[2]+start_lambda*coeffs[1]+coeffs[0]);
+				end_px = Math.round(end_lambda*end_lambda*coeffs[2]+end_lambda*coeffs[1]+coeffs[0]);
+
+				get_lambda_values(num_patterns,function(){
+					run_sample_scan(0);
+				});
+			
+			
+			});
+		}
+		
+	}
+	apply_settings();
+}
+
+
+
+//Checks the input parameters entered by the user for validity
+function display_warning(flag)
+{	
+	if(parseFloat(document.getElementById("param_startWavelength").value)<1350)
+	{
+		alert("Valid wavelength range is 1350-2450");
+		document.getElementById("param_startWavelength").value=1350;
+	}
+	else if(parseFloat(document.getElementById("param_endWavelength").value)>2450)
+	{
+		alert("Valid wavelength range is 1350-2450");
+		document.getElementById("param_endWavelength").value=2450;
+	}
+	else 
+	{
+		if(parseFloat(document.getElementById("param_startWavelength").value)>parseFloat(document.getElementById("param_endWavelength").value))
+		{
+			alert("Invalid wavelength range!");
+			document.getElementById("param_startWavelength").value=1350;
+			document.getElementById("param_endWavelength").value=2450;
+		}
+	}
+
+	if(flag==1||flag==2)
+	{
+		if(parseInt(document.getElementById("param_numPatterns").value)>1100 || parseInt(document.getElementById("param_numPatterns").value)<3)
+		{
+			alert("Invalid number of Wavelength Points!\nValid values : 3 - 1100");
+			document.getElementById("param_numPatterns").value="200";
+		}
+		display_warning(5);//check for exposure time limits for changed number of patterns		
+		document.getElementById("param_measurementResolution").value = Math.round(10*(parseFloat(document.getElementById("param_endWavelength").value)-parseFloat(document.getElementById("param_startWavelength").value))/parseInt(document.getElementById("param_numPatterns").value))/10;
+
+		if(scan_type=='hadamard_scan' && document.getElementById("param_measurementResolution").value<=1.4)
+			alert("The current Hadamard implementation is optimized for pattern widths of 2 DMD pixels or greater. If you continue with the current scan settings without decreasing the number of wavelength points or reducing the spectral range, artifacts may be manifest as noise in the spectrum.");
+
+		var input_num_patterns = parseInt(document.getElementById("param_numPatterns").value);
+		var actual_num_patterns =Math.ceil(input_num_patterns/24)+ input_num_patterns; 
+		var total_time=(exposure_time/1000)*(parseInt(document.getElementById("param_numScansToAvg").value))*actual_num_patterns;
+		total_time=Math.round(total_time*100)/100;
+		document.getElementById("param_totalMeasurementTime").value=total_time;
+		
+	}
+	if(flag==4)
+	{
+		if(document.getElementById("param_numScansToAvg").value<1 || document.getElementById("param_numScansToAvg").value>100)
+		{
+			alert("Invalid input. Number of Scans to Average must be between 1 and 100.");
+			document.getElementById("param_numScansToAvg").value=1;
+			var input_num_patterns = parseInt(document.getElementById("param_numPatterns").value);
+			var actual_num_patterns =Math.ceil(input_num_patterns/24)+ input_num_patterns; 
+			var total_time=(exposure_time/1000)*actual_num_patterns;
+			total_time=Math.round(total_time*100)/100;
+			document.getElementById("param_totalMeasurementTime").value=total_time;	
+		}
+		else
+		{
+			var input_num_patterns = parseInt(document.getElementById("param_numPatterns").value);
+			var actual_num_patterns =Math.ceil(input_num_patterns/24)+ input_num_patterns; 
+			var total_time=(exposure_time/1000)*(parseInt(document.getElementById("param_numScansToAvg").value))*actual_num_patterns;
+			total_time=Math.round(total_time*100)/100;
+			document.getElementById("param_totalMeasurementTime").value=total_time;			
+		}
+	}
+
+	if(flag==5)
+	{		
+		var input_num_patterns = parseInt(document.getElementById("param_numPatterns").value);
+		if(scan_type=='hadamard_scan')
+			input_num_patterns = getPaleyOrder(input_num_patterns);
+		var actual_num_patterns =Math.ceil(input_num_patterns/24)+ input_num_patterns; 
+		max_exp = Math.floor(2000000 / actual_num_patterns);
+		/*if(document.getElementById("param_exposureTime").value<600 || document.getElementById("param_exposureTime").value>max_exp)
+		{
+			alert("The valid range for exposure time is 600-"+max_exp);
+			document.getElementById("param_exposureTime").value="600";
+		}*/
+		if(!validate_exposure_time(actual_num_patterns,document.getElementById("param_exposureTime").value))
+			document.getElementById("param_exposureTime").value="600";	
+		exposure_time = parseInt(document.getElementById("param_exposureTime").value);
+		
+		document.getElementById("param_exposureTime").focus();	
+		var total_time=(exposure_time/1000)*(parseInt(document.getElementById("param_numScansToAvg").value))*actual_num_patterns;
+		total_time=Math.round(total_time*100)/100;
+		document.getElementById("param_totalMeasurementTime").value=total_time;	
+	}
+
+	if(flag!=4 && flag!=5)
+	{
+		document.getElementById("setRef_warning").innerHTML="Note : Parameters have changed. Generate Patterns and Set New Reference!";
+		document.getElementById("setRef_warning").style.display="block";
+		document.getElementById("generatePatterns_button").disabled=false;
+		document.getElementById("generatePatterns_button").style.background="#006a71";
+		document.getElementById("performScan_button").style.background="grey";
+		document.getElementById("setRef_button").style.background="grey";
+		document.getElementById("performScan_button").disabled=true;
+		document.getElementById("setRef_button").disabled=true;
+	}
+}
+
+function validate_exposure_time(num_patterns,exp_time)
+{
+	var vsync_period = 17700;//µs
+	var min_exp_time = 230;//µs
+	var default_adc_sample_rate = 30;//ksps
+	var pats_per_frame = Math.floor((vsync_period-min_exp_time)/exp_time); 
+
+	if(exp_time > (vsync_period-min_exp_time))
+	{
+		alert("Invalid exposure time!\nThe exposure time specified is greater than vsync period.");
+		return 0;
+	}
+	else if (exp_time<600)
+	{
+		alert("Invalid exposure time!\nMinimum exposure time is 600µs");
+		return 0;
+	}
+
+	var frames_per_image = Math.floor((25 + pats_per_frame -1)/pats_per_frame);
+
+	var num_images= Math.floor((num_patterns+23)/24);
+	
+	var total_frames = frames_per_image * num_images;
+
+	var num_samples = (total_frames+2)*(vsync_period/1000+1)*default_adc_sample_rate;
+
+	if(num_samples > (64*1024-1))
+	{
+		alert("Invalid Exposure time!\nTotal scan time exceeds 2 secs.");
+		return 0;
+	}
+	else
+		return 1;
+}
+
+//Downloads the spectrum data files and raw adc value files
+function Download(flag){
+	var file=document.getElementById("param_scanFilename").value;
+
+	if(flag==0)
+		file="custom_scan_data/sample_scan_data/"+file+"_spectrumdata.csv";
+	else
+		file="custom_scan_data/sample_scan_data/"+file+"_rawdata.csv";
+	
+	window.open(file,'Download');
+}
+
+
+//Generate Patterns (Generate scan.sh which contains commands for generating and loading patterns and execute it)
+function generate_patterns()
+{
+	if(document.getElementById("hadamard_scan").checked)
+		scan_type="hadamard_scan";
+	else
+		scan_type="sequential_scan";
+
+	document.getElementById("generatePatterns_button").disabled=true;
+	document.getElementById("generatePatterns_button").style.background="grey";
+
+	var lambda1=document.getElementById("param_startWavelength").value;
+	var lambda2=document.getElementById("param_endWavelength").value;
+
+	$.get('read_file.php', {filename: "calibration_data/pixel_coeffs.txt", time : 0 }, function(data){
+	data = $.parseJSON(data);
+	data = data.split("\n");
+
+	var coeffs = new Array();
+	for(var i=0;i<3;i++)
+		coeffs[i]= parseFloat(data.shift());
+		
+	//Get pixel values corresponding to wavelength entered by the user
+	start_px = Math.round(lambda1*lambda1*coeffs[2]+lambda1*coeffs[1]+coeffs[0]);
+	end_px = Math.round(lambda2*lambda2*coeffs[2]+lambda2*coeffs[1]+coeffs[0]);
+
+	//Create script to generate and load patterns and execute it
+	generate_script_file(4);
+	document.getElementById("setRef_warning").innerHTML="Generating Patterns...";
+	$.get('run_scan.php',function(data){
+	data = $.parseJSON(data);
+	});
+	fail_count=0;
+	var max_numTries=100;
+	check_scan_completed(max_numTries,function onSuccess(){
+
+					document.getElementById("setRef_warning").innerHTML="Patterns Generated. Set New Reference!";
+					document.getElementById("setRef_warning").style.display="block";
+					document.getElementById("setRef_button").style.background="#006a71";
+					document.getElementById("setRef_button").disabled=false;
+	},
+	function onErr(){
+				alert("Reference scan Failed!");
+				document.getElementById('setRef_warning').innerHTML="Reference Scan in progress...";
+	},
+	function onFailure(data){
+					if(confirm("Error!\n View log file..."))
+					{
+						window.open("log.txt");
+					}
+
+					document.getElementById("generatePatterns_button").disabled=false;
+					document.getElementById("generatePatterns_button").style.background="#006a71";	
+					document.getElementById("setRef_warning").innerHTML="Error!";
+	},1);
+	apply_settings();
+
+	});
+}
+
+function scan_type_change(selectedScanType)
+{
+	if(selectedScanType=='sequential_scan')
+	{
+		scan_type='sequential_scan';
+		display_warning(5);
+	}
+	else if(selectedScanType=='hadamard_scan')
+	{
+		scan_type='hadamard_scan';
+		if(document.getElementById("param_measurementResolution").value<=1.4)
+			alert("The current Hadamard implementation is optimized for pattern widths of 2 DMD pixels or greater. If you continue with the current scan settings without decreasing the number of wavelength points or reducing the spectral range, artifacts may be manifest as noise in the spectrum.");
+		display_warning(5);
+	}
+
+	document.getElementById("setRef_warning").innerHTML="Note : Scan Type has changed. Generate Patterns and Set New Reference!";
+	document.getElementById("setRef_warning").style.display="block";
+	document.getElementById("generatePatterns_button").disabled=false;
+	document.getElementById("generatePatterns_button").style.background="#006a71";
+	document.getElementById("performScan_button").style.background="grey";
+	document.getElementById("setRef_button").style.background="grey";
+	document.getElementById("performScan_button").disabled=true;
+	document.getElementById("setRef_button").disabled=true;
+}
+
+</script>
+
+
+</head>
+<body>
+
+<div id="form1_settingsPage" name="form1_settingsPage" style="margin-left:45px;">
+<form name="settings" method="get">
+<h1>Custom Scan</h1><div style="margin-left:20pt">
+<label id ="description" style="font-size: 11pt;display:none;color:#AAAAAA" >
+Step 1 - Select the scan type : Sequential (linescan) radio button or Hadamard Scan radio button.<br>
+Step 2 - Enter desired scan parameters into white boxes below; Select Sequential (linescan) or Hadamard Scan.<br>
+Step 3 - Generate new patterns for the scan by selecting GENERATE PATTERNS.<br>
+Step 4 - Scan the reference : Open beam or place empty cuvette in sample holder and select SET REFERENCE.<br>
+Step 5 - Scan the sample : Place sample in sample holder and select PERFORM SCAN.<br>
+</label></div>
+
+<div id="settings" style="height:200px;width:550px;float:left;">
+<br><br>
+<input type="radio" name="scan_type" id="sequential_scan" onchange="scan_type_change('sequential_scan')" checked><label style="font-size: 12pt" >Sequential Scan</label>
+<input type="radio" name="scan_type" id="hadamard_scan" onchange="scan_type_change('hadamard_scan')"><label style="font-size: 12pt" >Hadamard Scan</label><br><br>
+<label id="label1" style="font-size: 12pt;width:300px;float:left;display:none;"><br/>Spectral Range (nm) : </label>
+<br/>
+<input type="text" id="param_startWavelength" name="inp1" size="6" style="width:50px;float:left;display:none;" onkeypress="return isNumber(event)" onchange="display_warning(1)">
+<label id="label1_2" style="width:37px;float:left;display:none;">&nbsp &nbsp -</label>
+<input type="text" id="param_endWavelength" name="inp1" size="6" style="width:50px;display:none;float:left;" onkeypress="return isNumber(event)" onchange="display_warning(2)" >
+<label id="tooltip_spectralrange" style="color:red;font-size: 14pt;width:20px;float:left;position: absolute; left: 500px;" title="Must be between 1350 and 2450nm.
+Measure a subset of the spectrometer's spectral range to optimize acquisition speed for your application"><b>?</b></label><br/>
+<br/>
+<label id="label_pattern_range" style="font-size: 12pt;width:300px;float:left;display:none;"><br/>Number of Wavelength Points : </label>
+<br/>
+<input type="text" id="param_numPatterns" name="inp1" size="15" style="display:none;float:left;" onkeypress="return isNumber(event)" onchange="display_warning(1)">
+<label id="tooltip_wavelengthPts" style="color:red;font-size: 14pt;width:20px;float:left;position: absolute; left: 500px;" title="Output spectrum will have this many datapoints."><b>?</b></label><br/><br>
+
+<label id="label2" style="font-size: 12pt;width:300px;float:left;display:none;"><br/>Digital Resolution (nm) : </label>
+<br/>
+<input type="text" id="param_measurementResolution" name="inp1" size="15" style="display:none;float:left;" readonly>
+<label id="tooltip_resolution" style="color:red;font-size: 14pt;width:20px;float:left;position: absolute; left: 500px;" title="Approx. spectral separation between two adjacent datapoints.
+Determined by the spectral range and number of wavelength points."><b>?</b></label><br/><br/>
+
+<label id="label4" style="font-size: 12pt;width:300px;float:left;display:none;"><br/>Number of Scans to Average : </label>
+<br/>
+<input type="text" id="param_numScansToAvg" name="inp1" size="15" style="display:none;float:left;" onkeypress="return isNumber(event)" onchange="display_warning(4)">
+<label id="tooltip_scanstoavg" style="color:red;font-size: 14pt;width:20px;float:left;position: absolute; left: 500px;" title="Scan will run multiple times and the outputs will be averaged."><b>?</b></label><br/><br/>
+
+<label id="label3" style="font-size: 12pt;width:300px;float:left;display:none;"><br/>Total Measurement Time (ms) : </label>
+<br/>
+<input type="text" id="param_totalMeasurementTime" name="inp1" size="15" style="display:none;float:left;" readonly>
+<label id="tooltip_time" style="color:red;font-size: 14pt;width:20px;float:left;position: absolute; left: 500px;" title="Determined by the number of wavelength points (number of patterns displayed) per scan multiplied by the number of scans to average multiplied by exposure time."><b>?</b></label><br/><br/>
+
+<label id="label_exposureTime" style="font-size: 12pt;width:300px;float:left;display:none;"><br/>Exposure time per pattern (µs) : </label>
+<br/>
+<input type="text" id="param_exposureTime" name="inp1" size="15" style="display:none;float:left;" onkeypress="return isNumber(event)" onchange="display_warning(5)">
+<label id="tooltip_exposuretime" style="color:red;font-size: 14pt;width:20px;float:left;position: absolute; left: 500px;" title="Exposure time per pattern"><b>?</b></label><br/><br/>
+
+<label id="label_ouputfilename" style="font-size: 12pt;width:300px;float:left;"><br/>Scan Name : </label>
+<br/>
+<input type="text" id="param_scanFilename" size="15" style="float:left" value="custom_scan" onkeypress="return checkScanName(event)">
+<label id="tooltip_scanname" style="color:red;font-size: 14pt;width:20px;float:left;position: absolute; left: 500px;" title="Determines downloaded file name" ><b>?</b></label><br/><br/><br>
+
+
+</div>
+<div id="buttons" style="height:200px;width:100px;float:left;">
+<br><br><br><br>
+<button type="button" id="generatePatterns_button" style="background-color:grey;color:white;font: bold 14px Arial;height:40px;width:200px;" onclick="generate_patterns()" disabled>GENERATE PATTERNS</button>
+<br><br>
+<button type="button" id="performScan_button" style="background-color:#006a71;color:white;font: bold 14px Arial;height:100px;width:200px;" onclick="run_scan_fun(0)">PERFORM SCAN</button>
+<br><br>
+<button type="button" id="setRef_button" style="background-color:#006a71;color:white;font: bold 14px Arial;height:40px;width:200px;" onclick="set_pga_run_reference_scan()">SET REFERENCE</button>
+<br><br/>
+<label id="setRef_warning" style="color:red;font-size: 12pt;width:200px;float:left;text-align:center;display:none;"><br/>Note : Parameters have changed. New reference needed! </label>
+</div>
+
+</form>
+</div>
+
+
+<div id="form2_displayScanPage" name="form2_displayScanPage" style="margin-left:45px;display:none;">
+<form name="display_scan"  method="get">
+
+<label id="label_scanname" style="color:#006a71;font: bold 18px Arial;height:40px;float:left;position: absolute; left: 100px;width:500px;">Scan Name :</label>
+
+<label id="label_scanInProgress" style="font-size: 12pt;float:left;display:none;position: absolute; left: 100px;">Sample Scan In progress...</label>
+
+<br><br><br><br>
+<canvas id="spectrumcanvas" width="1000" height="500"> </canvas>
+<br><br><br>
+<button type="button" id="runnewscan_button" style="background-color:grey;color:white;font: bold 14px Arial;height:40px;width:250px;display:none;float:left;position: absolute;left: 150px;" onclick="run_scan_fun(1)" disabled>Run New Scan</button>
+<button type="button" id="downloadspectrumdata_button" style="background-color:grey;color:white;font: bold 14px Arial;height:40px;width:250px;float:left;position: absolute; left: 475px;" onclick="Download(0)" disabled>Download Spectrum Data</button>
+<button type="button" id="downloadrawdata_button" style="background-color:grey;color:white;font: bold 14px Arial;height:40px;width:250px;float:left;position: absolute; left: 800px;" onclick="Download(1)" disabled>Download Raw ADC Data</button>
+</form>
+</div>
+
+
+  <script type="text/javascript">
+   	view_settings();
+  </script>
+</body>
+</html>
+		</div>
+	</div>
+
+<script>
+	var isgraphicalApp = false;	
+	
+	if(isgraphicalApp == true)
+	{
+		if(has_graphics == false)
+		{
+		
+			$("#no_display").show();
+			$("#run_application").hide();
+		}
+		else if(client_is_host == false)
+		{
+			$("#running_remotely").show();
+		}
+	}
+</script>
+

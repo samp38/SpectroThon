@@ -1,0 +1,26 @@
+
+
+Custom_Scan : 	
+				generatePatterns_button --> generate_patterns();		OK
+					generate_script_file(4);							OK
+					apply_settings();									OK
+
+				performScan_button --> run_scan_fun(0)
+											run_sample_scan(0);
+												generate_script_file(3);
+												
+											apply_settings();
+											
+											
+				runnewscan_button  --> run_scan_fun(1)
+											run_sample_scan(1);
+												generate_script_file(0);
+				
+				
+				setRef_button	   --> set_pga_run_reference_scan()
+											generate_script_file(5);				OK
+											$.get('run_scan.php',function(data));	OK
+											Compute PGA								OK
+											run_reference_scan()					OK
+												generate_script_file(1);
+												$.get('run_scan.php',function(data)   OK
