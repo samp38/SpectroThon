@@ -88,3 +88,6 @@ ENV/
 # Rope project settings
 .ropeproject
 
+_PCA-depreciated
+appDatabase
+hardware
