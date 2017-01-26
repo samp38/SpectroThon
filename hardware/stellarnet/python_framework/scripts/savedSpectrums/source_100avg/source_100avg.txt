@@ -1,2 +1,0 @@
-Date : 2016-12-15
-{'temp_comp': 0, 'x_timing': 3, 'int_time': 2, 'det_type': 5, 'scans_to_avg': 100, 'x_smooth': 0, 'coeffs': [5.201992, 0.001955, 861.78, 0.0], 'model': 'RW-InGaAs-512X-T2', 'device_id': '16060712'}
