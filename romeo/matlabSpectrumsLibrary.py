@@ -49,6 +49,16 @@ class MatlabSpectrumsLibrary(SpectrumsLibrary):
 		"""
 		return self.taggedSpectrums
 		
+	def getTaggedSpectrumsByName(self, name):
+		"""
+		@inherit documentation
+		"""
+		taggedSpectrumsByName = []
+		for spectrum in self.taggedSpectrums:
+			if(spectrum.tag.name == name):
+				taggedSpectrumsByName.append(spectrum)
+		return taggedSpectrumsByName
+		
 	def getUntaggedSpectrums(self):
 		"""
 		@inherit documentation

@@ -1,3 +1,4 @@
+# DEPRECIATED: used to get Dark spectrum
 import sys
 import os
 sys.path.insert(0, os.path.abspath('..'))
@@ -14,8 +15,8 @@ parser.add_argument('-f', '--spectrumsDir', required=True,
 args = vars(parser.parse_args())
 
 # Start Spectrometer
-device = romeo.RomeoSpectrometer(integrationTime=2, avgScansNumber=5, xSmooth=0)
-device.initialize(True)
+device = romeo.RomeoSpectrometer(integrationTime=39, avgScansNumber=5, xSmooth=0)
+# device.initialize(True)
 key = ''
 while(key != 'q'):
 	speciesLib = romeo.MatlabSpeciesLibrary(args['speciesDir'])
@@ -45,9 +46,10 @@ while(key != 'q'):
 	spectrumsLibrary = romeo.MatlabSpectrumsLibrary(speciesLib, args['spectrumsDir'])
 	
 	raw_input('Please place your sample in the cuvette for measurement and press [ENTER]\n>>>')
+	device.generateBlankSpectrum(True)
 	spectrum = device.getSpectrum(True)
 	taggedSpectrum = romeo.TaggedSpectrum(spectrum.points, specie, spectrumsLibrary.getAvailableIndiceForSpecie(specie.key), deviceConfig=spectrum.deviceConfig)
 	
 	# save matlab files
-	speciesLib.addSpecie(specie)
+	# speciesLib.addSpecie(specie)
 	spectrumsLibrary.save(taggedSpectrum)

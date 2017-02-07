@@ -53,7 +53,7 @@ class Pca(object):
 				numpy.squeeze(numpy.asarray(numpy.mean(scoresCloudAsMatrix, axis=1))),
 				numpy.cov(scoresCloudAsMatrix),
 				tagsByTagKey[tagKey],
-				numpy.random.multivariate_normal(numpy.squeeze(numpy.asarray(numpy.mean(scoresCloudAsMatrix, axis=1))), numpy.cov(scoresCloudAsMatrix), 200),
+				numpy.random.multivariate_normal(numpy.squeeze(numpy.asarray(numpy.mean(scoresCloudAsMatrix, axis=1))), numpy.cov(scoresCloudAsMatrix), 100),
 				scoresCloudAsMatrix
 			))
 
@@ -61,12 +61,15 @@ class Pca(object):
 		for toto in self.bivariateGaussiansAndTags:
 			caca = numpy.transpose(toto[3])
 			label = str(toto[2].key)
+			color = numpy.random.rand(3,1)
 			x = caca[0]
 			y = caca[1]
-			plt.scatter(x, y, c=numpy.random.rand(3,1))
-			plt.text(numpy.mean(x), numpy.mean(y), label)
+			plt.scatter(x, y, c=color, label=label)
+			plt.text(numpy.mean(x), numpy.mean(y),label, fontsize=12, bbox=dict(facecolor='white', alpha=None, edgecolor=color))
+			# plt.text(numpy.mean(x), numpy.mean(y),label, bbox=dict(facecolor=color, alpha=None), fontsize=12, color='w')
 			plt.axis('equal')
 		plt.grid(True)
+		# plt.legend()
 		plt.show()
 
 	def identify(self, spectrum, xSmooth=0):

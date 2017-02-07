@@ -1,11 +1,12 @@
 import bisect
 import matplotlib.pyplot as plt
+import math
 
 class Spectrum(object):
 	"""Spectrum represents a measured spectrum from a Stellarnet device"""
 	def __init__(self, points, fileName=None, deviceConfig=None):
 		"""
-		Points is a list of tuples (pixel lambda, pixel blank ADC value, pixel ADC value)
+		Points is a list of tuples (pixel lambda, pixel blank ADC value, pixel transmitted ADC value, pixel dark ADC value)
 		"""
 		self.points = tuple(points)
 		self.fileName = fileName
@@ -13,28 +14,54 @@ class Spectrum(object):
 		self.cache = {}
 	
 	
-	def _getPoint(self, xSmooth, index):	
-		if (xSmooth == 0):
-			return self.points[index]
-		else:
-			if(not xSmooth in self.cache):
-				smoothed_blank    = Spectrum._smooth_data([point[1] for point in self.points], xSmooth)
-				smoothed_measures = Spectrum._smooth_data([point[2] for point in self.points], xSmooth)
-				self.cache[xSmooth] = tuple([ (self.points[index][0], smoothed_blank[index], smoothed_measures[index] ) for index in range(0, len(self.points)) ])
-			return self.cache[xSmooth][index]
+	# def _getPoint(self, xSmooth, index):
+	# 	if (xSmooth == 0):
+	# 		return self.points[index]
+	# 	else:
+	# 		if(not xSmooth in self.cache):
+	# 			smoothed_blank    = Spectrum._smooth_data([point[1] for point in self.points], xSmooth)
+	# 			smoothed_measures = Spectrum._smooth_data([point[2] for point in self.points], xSmooth)
+	# 			self.cache[xSmooth] = tuple([ (self.points[index][0], smoothed_blank[index], smoothed_measures[index] ) for index in range(0, len(self.points)) ])
+	# 		return self.cache[xSmooth][index]
+				
+	def _getPoint(self, xSmooth, index):
+		""" Absorbance is defined as follows:
+				 A(n)=-log((sample(n)-dark(n))/(ref(n)-dark(n)))
+		"""
+		
+		if(not xSmooth in self.cache):
+			smoothed_blank    = Spectrum._smooth_data([point[1] for point in self.points], xSmooth)
+			smoothed_measures = Spectrum._smooth_data([point[2] for point in self.points], xSmooth)
+			smoothed_dark     = Spectrum._smooth_data([point[3] for point in self.points], xSmooth)
+			self.cache[xSmooth]=[]
+			for i in range(0,len(self.points)):
+				num = smoothed_measures[i] - smoothed_dark[i]
+				denom = smoothed_blank[i] - smoothed_dark[i]
+				if(denom <= 0):
+					print("WARNING : dark is brighter than blank")
+				signalRatio = num/denom
+				if(signalRatio < 0):
+					signalRatio = 1e-10
+					print("WARNING : negative signal (ratio measured - dark) / (reference - dark)")
+				self.cache[xSmooth].append(tuple([self.points[i][0], smoothed_blank[i], smoothed_measures[i], smoothed_dark[i], -math.log(signalRatio, 10)]))
+			self.cache[xSmooth] = tuple(self.cache[xSmooth])
+		return self.cache[xSmooth][index]
+					
+		
 	
 	def getAbsorbance(self, wavelength, xSmooth=0):
 		if(wavelength < self._getPoint(xSmooth, 0)[0]):
-			return self._getPoint(xSmooth, 0)[2] - self._getPoint(xSmooth, 0)[1]
+			return self._getPoint(xSmooth, 0)[4]
 		elif(wavelength >= self._getPoint(xSmooth, -1)[0]):
-			return self._getPoint(xSmooth, -1)[2] - self._getPoint(xSmooth, -1)[1]
+			return self._getPoint(xSmooth, -1)[4]
 		else:
 			indexSup = bisect.bisect([point[0] for point in self.points], wavelength)
 			indexInf = indexSup - 1
-			slope = float(self._getPoint(xSmooth, indexSup)[2] - self._getPoint(xSmooth, indexSup)[1] - (self._getPoint(xSmooth, indexInf)[2] - self._getPoint(xSmooth, indexInf)[1])) / float(self._getPoint(xSmooth, indexSup)[0] - self._getPoint(xSmooth, indexInf)[0])
-			intercept = (self._getPoint(xSmooth, indexInf)[2] - self._getPoint(xSmooth, indexInf)[1]) - (self._getPoint(xSmooth, indexInf)[0]) * slope
+			slope = float(self._getPoint(xSmooth, indexSup)[4] - (self._getPoint(xSmooth, indexInf)[4])) / float(self._getPoint(xSmooth, indexSup)[0] - self._getPoint(xSmooth, indexInf)[0])
+			intercept = (self._getPoint(xSmooth, indexInf)[4]) - (self._getPoint(xSmooth, indexInf)[0]) * slope
 			return slope * wavelength + intercept
 			
+	
 	def plot(self, xSmooth=0):
 		# Two subplots, the axes array is 1-d
 		f, axarr = plt.subplots(2, sharex=True)
@@ -43,11 +70,12 @@ class Spectrum(object):
 			[self._getPoint(xSmooth, index)[1] for index in range(0, len(self.points))]
 		)
 		axarr[0].set_title('Blank')
-		axarr[1].plot([point[0] for point in self.points],  [self._getPoint(xSmooth, index)[2] - self._getPoint(xSmooth, index)[1] for index in range(0, len(self.points))])
+		axarr[1].plot([point[0] for point in self.points],  [self._getPoint(xSmooth, index)[4] for index in range(0, len(self.points))])
 		axarr[1].set_title('Absoption')
 		axarr[1].set_xlabel('[nm]')
 		plt.grid(True)
 		plt.show()
+	
 	
 	@staticmethod
 	def _smooth_data(src, xSmooth):

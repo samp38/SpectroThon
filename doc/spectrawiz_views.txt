@@ -1,0 +1,282 @@
+//////////////////////////////////////////////////////////////////
+Scope mode.............displays uncompensated spectral data
+Absorbance.............display requires dark & reference for AU
+Transmission...........display requires dark & reference for %T
+                       also used for reflectance measurements
+Radiometer.............display Watts,Micro-Watts,Lumens,Moles,fc
+Ref spectra............display of reference spectra minus dark
+
+Channel................display selection for logical units
+Multi-Graph............display multi-channels on single graph
+SnapShot...............freeze display or run in realtime
+Wave Ratio.............select 2 wavelengths for ratio display
+Y scale................setup max Y-axis or set Y to log scale
+Zoom...................X and Y axis area you want to see
+Graph Trace as.........Overlay, with Background, Derivative
+
+//////////////////////////////////////////////////////////////////
+View -> Scope mode:
+
+    Allows user to view spectrometer information in realtime.
+    Typically, this will be light emission from samples in
+    various forms for specific wavelength measurement applications
+    which include emission, fluorescence, and Raman (laser
+    induced scattering).
+
+    Scope enables viewing emission from LEDs, laser diodes, flour-
+    escent lamps, plasma, ignited metal or gas emission lines,
+    emission lines from the stars when mounted in a telescope,
+    light bulbs (all types), neon and other types of signs,
+    UV or laser induced fluorescence from samples, and Raman
+    scattering from samples.
+
+    Each pixel is graphed on the x-axis as wavelength in nano-
+    meters using the calibration parameters entered via setup.            
+    Scope view will be affected by options available in
+    the Setup menu including; detector integration rate (spectra
+    signal level), number of scans to average (Y axis smoothing),
+    pixel resolution (X axis smoothing), Temperature compensation
+    (pulls dark spectra level to near zero over operating
+    temperature range).
+
+//////////////////////////////////////////////////////////////////
+View -> Absorbance:
+
+    Displays absorbance at pixel n using the current sample, 
+    reference, and dark data sets:
+            A(n)=-log((sample(n)-dark(n))/(ref(n)-dark(n)))
+
+//////////////////////////////////////////////////////////////////
+View -> Transmission:  (also use for Reflectance)
+
+    Displays percent transmission at pixel n using the current 
+    sample, reference and dark data sets:
+            T(n)=((sample(n)-dark(n))/(ref(n)-dark(n))*100
+
+    Percent transmission is mathamatically eqivalent to percent 
+    reflection and is used for reflectance applications.
+    Use transmission mode for SpectroColorimetry. Use a white
+    light to reflect off of a white surface.  Save this as the
+    reference.  Then replace the white standard with a color 
+    sample to measure.  You will then see the spectral shape 
+    for the color where the white standard displays as a 
+    straight line at 100 percent.
+     
+//////////////////////////////////////////////////////////////////
+View -> Radiometer:  
+
+  Watts/nm  (flux) - W/m^2/nm (irradiance)  - W/sr/m^2/nm (radiance)  
+  uWatts/nm (flux) - uW/m^2/nm (irradiance) - uW/sr/m^2/nm (radiance) 
+  Lumen/nm  (flux) - Lumen/m^2/nm (illuminance) - Cd/m^2/nm (candela)
+  Lumen per square foot fc (footcandles)
+  Micro-moles per square meter per second
+  -------------------------------------------------------------------
+  Save or Load Cal file for the attached light receptor
+  Setup for Radiant and Luminous Flux area  <-- for irradiance cals
+  Setup range for Watt and flux measurement <-- default 400-700nm 
+  Setup compensation cor CR2 aperture       <-- 100% = not installed
+
+  
+    These spectroradiometer display modes provide a calibrated Y
+    axis.  In order to use this mode, the unit requires certain
+    system calibration files to exist.  Units ordered as a
+    spectroradiometer include calibration files for operation
+    in this display mode.  These files are installed by clicking
+    on the MyCal-nnnnn.exe file provided in the installation disk.
+
+    Note: the selected Radiometer mode (flux, irradiance, radiance)
+    requires its respective calibration file to be loaded (prior to
+    starting SpectraWiz.  A flux measurement can also be made if
+    the calibration file is for irradiance.  See selections below.
+    For radiance measurements a lens is attached to the CR2 light
+    receptor and a radiance calibration must have be performed.
+
+    To get moles, watts is multiplied by 0.00835 (an Einstein),
+    which is a unit of energy in photochemistry, that represents
+    a Dose of power that irradiates a sample for 1 second.  An
+    Einstein is the amount of enery in 1 mole (Avogadro's number,
+    6.0222 x 10^23) of photons. Another number displayed in this
+    mode is PAR, which stands for Photosynthetically Active
+    Radiation, and is the integral of power from 400-700nm in
+    micro-moles per square meter per second.    
+
+    For the illuminace display, the photopic response curve is used
+    to formulate lumen per meter^2 which provides a LUX value.
+
+    The Irradiance calibration function located under the Apps
+    menu can re-generate system calibration files needed for
+    operating in Irradiance view mode. This requires a calibrated
+    source lamp with its calibration data stored in a disk file.
+    An example irrad cal data (text file) "NIST.icd" is
+    provided.  This file can be used to simulate an irradiance
+    calibration and produce the required system calibration
+    files needed for selectiong the Irradiance view mode.
+    WARNING: the system irradiance cal files files such as
+    SW1.icf thru SW8.icf can be easily overwritten.
+
+    Like most instruments, it is good practice to re-calibrate
+    the spectroradiometer every 6 months.
+
+  Save or Load Cal file for the attached light receptor
+  -----------------------------------------------------
+    Use Save Cal to create a single file, named by you to
+    preserve ther current system settings and SWx.ICF 
+    files for each spectrometer channel installed in the
+    system that is calibrated and currently operating.
+
+    Use the Load Cal to specify and run a previously saved
+    configuration from the SWCals folder.  Filenames
+    should indicate configuration for light receptor
+    and spectrometers.  Example filenames are:
+    MyCal-BW804-CR2.cal       -single BLUE-Wave + CR2
+    MyCal-BW804-RW202-IS6.cal -dual BW+RED-Wave + Sphere  
+
+  Setup for Radiant and Luminous Flux Area in sq meter:
+  ----------------------------------------------------
+    CR1............ 11 mm diameter -> sq meter
+    CR2............ 06 mm diameter -> sq meter
+    IC2............ 0.625 inch diameter -> sq meter
+    Other.......... user defined
+    Exit flux area ... default area = 1 square meter
+
+    Radiant flux (watts/nm) = irradiant w/m^2/nm * receptor area
+    Luminous flux (lumen/nm) = illuminant LUX/m^2/nm * receptor area 
+  
+  Setup range for watt and Rflux measurements:
+  -------------------------------------------
+    Controls the numeric display that appears in the upper
+    left hand graph region.  Here, you specify the start 
+    and end wavelengths for the display of the total power 
+    over the range you select.  The default range
+    is 400-700nm.
+
+  Setup compensation cor CR2 aperture
+  -----------------------------------
+     Use this selection to compensate the radiometer calibration when
+     the CR2-AP (aperture) is installed.  A different aperture can be
+     installed on each channel (up to 8 channels supported). Please 
+     realized the system is calibrated without the aperture installed.
+     The default value = 100 representing 100%T for no aperture.
+     Each CR2-AP value = approx. 10%T - exact number on bag label or 
+     can be easily measured using the spectrometer. 
+
+//////////////////////////////////////////////////////////////////
+View -> Ref spectra:
+
+    Displays the reference and dark data previously saved as
+    ref(n)-dark(n). This is useful for troubleshooting absorbance
+    or transmission applications.  The Ref spectra must not be
+    clipped at its peaks, indicating a bad reference.
+
+//////////////////////////////////////////////////////////////////
+View -> Channel:
+
+    Allows display selection for logical units when more than
+    1 spectrometer is installed.  If you have multiple spectro-
+    meters this selection allows you to view data from the diff-
+    erent optical channels.  
+
+//////////////////////////////////////////////////////////////////
+View -> Multi-Graph:
+
+    Allows display of multiple channels in a single graph.
+    Re-select to turn this feature off.  The x-axis labeling can
+    be switched by using view -> channel -> n.  All active 
+    channels will be displayed.
+   
+//////////////////////////////////////////////////////////////////
+View -> SnapShot:
+
+    Allows user to freeze display.  Re-selecting SnapShot when the
+    display is frozen will re-start normal realtime display.
+
+//////////////////////////////////////////////////////////////////
+View -> Wave Ratio:
+
+     Allows 2 wavelengths to be selected to be displayed as a
+     ratio in the upper left hand corner.  The default values
+     260/280 are used for DNA concentration measurement.
+
+//////////////////////////////////////////////////////////////////
+View -> Y scale:
+
+  Set Max Y:
+    Allows the user to specify the Y axis scale top value.
+    Selecting Y-axis rescale icon (left click) will override
+    the Max Y via autoscale.  Entering a value of 0 will also
+    perform an autoscale. 
+ 
+ as Log:
+    Converts the Y-axis into a Log base10 scale. Re-selecting
+    will convert back to a linear Y-axis.   
+
+//////////////////////////////////////////////////////////////////
+View -> Zoom: ON/OFF
+
+    Allows a selected region to be expanded to a full graph. 
+    This option will work for any view mode. You are prompted 
+    for X-axis left and right wavelength and Y-axis top and 
+    bottom.  Selecting a bottom as a negative value allows
+    proper viewing for differential displays.  The Y zoom also 
+    can enabled by by right clicking on the Z button for mouse
+    XY zoom described below.
+
+    The status panel on bottom right of graph will show a "Z"
+    when zoom is in effect.  This reminds you that the X axis
+    has been zoomed.  You must re-select View -> Zoom to perform
+    an "unZOOM" or click the Z button on the toolbar or click
+    to the left side of the graph.
+
+    You may also use the mouse to zoom by clicking on the left
+    region and holding the button down while dragging (a box
+    will appear to be expanding as you move) to the right side
+    of the region of interest. When you lift the left mouse
+    button the selected region will appear as the full graph.
+    This process can be repeated several times, each time
+    refining the area of interest smaller and smaller.
+    
+//////////////////////////////////////////////////////////////////
+View -> Graph Trace as: 
+
+    Overlay 
+    Fat line
+    with Background
+    1st Derivative
+    2nd Derivative
+    Derivative Setup
+
+    These options apply to any SpectraWiz view mode.  Overlay
+    allows the graph trace to continuously plot without erasing
+    the previous scan.  Fatline makes the trace fatter.  With
+    Background allows installation of a BMP graphic for the graph.
+    This option also offers a selection for grid lines to be
+    displayed. To enable just grid lines without BMP graphic, 
+    select cancel when prompted for graphic.
+
+    Using spectral derivatives eliminate problems with offset
+    differences in samples.  The spectral data is converted to a
+    spectral reference of itself similar to measuring rate of
+    change or accelaration.  It is common practice to use
+    spectral derivatives when generating Neural Network training
+    sets or performing PLS calibrations to determine spiecies
+    concentrations.
+
+    Derivative Setup allows selection of the following parameters:
+    Gap size 2..15 (where 15 is standard)
+    Dtype 0=left 1=symetric 2=right
+
+    When Dtype=0 a non symetric derivative is computed. 
+    The derivative algorithm starts on the left (lower
+    wavelengths) and finishes on right. This leaves a gap size
+    anomoly on the right where the computation runs out of data.
+    Similarly, with Dtype=2 the anomoly is left on the left.
+    The selection is important when specific information is
+    detectable at the spectrum end (left or right).
+
+    With Dtype=1 a symetric derivative is computed using the
+    selected gap size.  Depending on the specific application
+    where multi-variate detection is required, the Dtype
+    selection will become an important factor to improve
+    sensitivity along with selected gap size.
+     
+//////////////////////////////////////////////////////////////////
