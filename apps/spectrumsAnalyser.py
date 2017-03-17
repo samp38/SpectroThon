@@ -26,5 +26,5 @@ print("Opening spectrum database located at " + str(os.path.abspath(args['learni
 taggedSpectrumsDatabase = romeo.MatlabSpectrumsLibrary(speciesLib, args['learningSpectrumsDir'])
 
 
-pca = romeo.Pca(taggedSpectrumsDatabase.getTaggedSpectrums(), range(888,1300,3), xSmooth=xSmooth_learningSpectrums)
+pca = romeo.Pca(taggedSpectrumsDatabase.getTaggedSpectrums(), range(888,1335,3), xSmooth=xSmooth_learningSpectrums)
 pca.plotPCA()

@@ -12,17 +12,6 @@ class Spectrum(object):
 		self.fileName = fileName
 		self.deviceConfig = deviceConfig
 		self.cache = {}
-	
-	
-	# def _getPoint(self, xSmooth, index):
-	# 	if (xSmooth == 0):
-	# 		return self.points[index]
-	# 	else:
-	# 		if(not xSmooth in self.cache):
-	# 			smoothed_blank    = Spectrum._smooth_data([point[1] for point in self.points], xSmooth)
-	# 			smoothed_measures = Spectrum._smooth_data([point[2] for point in self.points], xSmooth)
-	# 			self.cache[xSmooth] = tuple([ (self.points[index][0], smoothed_blank[index], smoothed_measures[index] ) for index in range(0, len(self.points)) ])
-	# 		return self.cache[xSmooth][index]
 				
 	def _getPoint(self, xSmooth, index):
 		""" Absorbance is defined as follows:
@@ -37,13 +26,17 @@ class Spectrum(object):
 			for i in range(0,len(self.points)):
 				num = smoothed_measures[i] - smoothed_dark[i]
 				denom = smoothed_blank[i] - smoothed_dark[i]
-				if(denom <= 0):
-					print("WARNING : dark is brighter than blank")
 				signalRatio = num/denom
-				if(signalRatio < 0):
-					signalRatio = 1e-10
-					print("WARNING : negative signal (ratio measured - dark) / (reference - dark)")
+				if(denom < 0):
+					print("WARNING : dark is brighter than blank @ " + str(self.points[i][0]))
+				if(num < 0):
+					print("WARNING : dark is brighter than transmitted signal @ " + str(self.points[i][0]))
+				if(signalRatio <= 0):
+					# signalRatio = 1e-1
+					print("WARNING : Negative absorbance @ " + str(self.points[i][0]))
+					signalRatio = 1
 				self.cache[xSmooth].append(tuple([self.points[i][0], smoothed_blank[i], smoothed_measures[i], smoothed_dark[i], -math.log(signalRatio, 10)]))
+				# self.cache[xSmooth].append(tuple([self.points[i][0], smoothed_blank[i], smoothed_measures[i], smoothed_dark[i], signalRatio]))
 			self.cache[xSmooth] = tuple(self.cache[xSmooth])
 		return self.cache[xSmooth][index]
 					

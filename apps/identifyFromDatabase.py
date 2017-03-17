@@ -7,7 +7,7 @@ from termcolor import colored, cprint
 
 
 xSmooth_learningSpectrums = 0
-xSmooth_candidates        = 0
+xSmooth_candidates        = 2
 
 # Parse arguments
 parser = argparse.ArgumentParser(description='Identify spectrums in the candidates folder. Species and learning spectrums directory are required.')
@@ -29,12 +29,10 @@ taggedSpectrumsDatabase = romeo.MatlabSpectrumsLibrary(speciesLib, args['learnin
 print("Opening candidates database located at " + str(os.path.abspath(args['candidatesDir'])))
 candidateSpectrumsDatabase = romeo.MatlabSpectrumsLibrary(speciesLib, args['candidatesDir'])
 
-#
-# for candidate in candidateSpectrumsDatabase.getTaggedSpectrums():
-# 	for xSmooth in range(0, 5):
-# 		candidate.plot(xSmooth)
+# for spectrum in taggedSpectrumsDatabase.getTaggedSpectrumsByName('adrenaline'):
+# 	spectrum.plot(0)
 
-pca = romeo.Pca(taggedSpectrumsDatabase.getTaggedSpectrums(), range(888,1335,3), xSmooth=xSmooth_learningSpectrums)
+pca = romeo.Pca(taggedSpectrumsDatabase.getTaggedSpectrums(), range(900,1335,3), xSmooth=xSmooth_learningSpectrums)
 pca.plotPCA()
 for candidate in candidateSpectrumsDatabase.getTaggedSpectrums():
 	print(colored("Identifying " + candidate.tag.key, 'cyan') + " (located at " +  str(os.path.abspath(args['candidatesDir'])) + "/" + candidate.fileName + ")")

@@ -24,6 +24,8 @@ class RomeoSpectrometer(object):
 			self.lambdas.append(self.device.compute_lambda(px))
 		self.blank = None
 		self.blankDeviceConfig = None
+		self.dark = None
+		self.darkDeviceConfig = None
 		print(self.device.get_config())
 	
 	def getSpectrum(self, verbose=False):
@@ -32,12 +34,16 @@ class RomeoSpectrometer(object):
 		"""
 		activeDeviceConfig = self.device.get_config()
 		if(activeDeviceConfig != self.blankDeviceConfig):
-			raise RuntimeError("The confuration of the device has changed since blanl measurement, cannot get relevant spectrum")
+			raise RuntimeError("The confuration of the device has changed since blank measurement, cannot get relevant spectrum")
+		if(activeDeviceConfig != self.darkDeviceConfig):
+			raise RuntimeError("The confuration of the device has changed since dark measurement, cannot get relevant spectrum")
 		if(verbose):
 			print(activeDeviceConfig)
 		sleep(0.3)
 		if(self.blank == None):
 			raise RuntimeError("generateBlankSpectrum must be called before getSpectrum")
+		if(self.dark == None):
+			raise RuntimeError("generateDarkSpectrum must be called before getSpectrum")
 		spectrum = None
 		success = False
 		while(not success):
@@ -52,12 +58,30 @@ class RomeoSpectrometer(object):
 		points = []
 		dynamic = 100.0*(float(max(spectrum))/65535.0)
 		for i in range(0, len(spectrum)):
-			points.append((self.lambdas[i], spectrum[i], self.blank[i]))
+			points.append((self.lambdas[i], self.blank[i], spectrum[i], self.dark[i]))
 		if(verbose):
 			print('Spectrum measured, dynamic is ' + str("%.1f" % dynamic) + ' %')
 		return Spectrum(points, deviceConfig=activeDeviceConfig)
 		
-		
+	def generateDarkSpectrum(self, verbose=False):
+		"""
+		generateDarkSpectrum reads the spectrum and stores it as dark for future spectrums
+		"""
+		self.darkDeviceConfig = self.device.get_config()
+		success = False
+		while(not success):
+			try:
+				self.dark = self.device.read_spectrum()
+				sleep(0.3)
+				success = True
+			except stellarnet.TimeoutError:
+				pass
+		dynamic = 100.0*(float(max(self.dark))/65535.0)
+		if(max(self.blank) > 65534):
+			raise RuntimeError("SPECTROMETER WARNING : your measurement seems saturated, please check its shape and adjust integration time")
+		if(verbose):
+			print('Dark set, dynamic is ' + str("%.1f" % dynamic) + ' %')
+	
 	def generateBlankSpectrum(self, verbose=False):
 		"""
 		generateBlankSpectrum reads the spectrum and stores it as blank for future spectrums
@@ -116,3 +140,6 @@ class RomeoSpectrometer(object):
 		raw_input('Please place the blank in the cuvette for exposure time autotune & blank reading and press [ENTER]\n>>>')
 		self.autoTuneIntegrationTime_dicho(verbose)
 		self.generateBlankSpectrum(verbose)
+		raw_input('Please turn off the light source to set the sensor dark spectrum and press [ENTER]\n>>>')
+		self.generateDarkSpectrum(verbose)
+		

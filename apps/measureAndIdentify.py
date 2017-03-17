@@ -24,7 +24,7 @@ print("Computing PCA")
 pca = romeo.Pca(taggedSpectrumsDatabase.getTaggedSpectrums(), range(888,1335,3))
 print("OK")
 device = romeo.RomeoSpectrometer(avgScansNumber=1, xSmooth=2)
-device.initialize()
+device.initialize(True)
 keyPressed = ''
 while(keyPressed != 'q'):
 	raw_input('Please place your sample in the cuvette for measurement and press [ENTER]\n>>>')

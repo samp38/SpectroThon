@@ -19,7 +19,6 @@ class Pca(object):
 		self.wavelengthRange = wavelengthRange
 		# Build the learning values array
 		learningValues = numpy.array([[spectrum.getAbsorbance(wavelength, xSmooth) for wavelength in wavelengthRange] for spectrum in taggedSpectrums])
-		
 		# Center learning values by its mean
 		learningValues_centered = numpy.matrix([[value - numpy.mean(line) for value in line] for line in learningValues])
 		
@@ -78,6 +77,13 @@ class Pca(object):
 		xSmooth parameter is used to apply box car averaging on the candidate spectrum (0, 1, 2, 3 or 4)
 		"""
 		candidateValues = numpy.array([spectrum.getAbsorbance(wavelength, xSmooth) for wavelength in self.wavelengthRange])
+		# DEBUG
+		text_file = open("logCandidate.txt", 'w')
+		for i in range(len(self.wavelengthRange)):
+			text_file.write(str(self.wavelengthRange[i]) + "\t" + str(candidateValues[i]) + "\n")
+		text_file.close()
+		
+		# END DEBUG
 		# Center learning values by its mean
 		candidateValues_centered = numpy.array([value - numpy.mean(candidateValues) for value in candidateValues])
 		ns = numpy.dot(candidateValues_centered,self.loading)
@@ -111,38 +117,6 @@ class Pca(object):
 		# for res in resultPCA:
 		# 	print(res[0]. key + "\t" + str("{0:.3f}".format(res[1])) + "%")
 		return resultPCA
-		
-			
-		# print(spectrum.name + '@' + spectrum.concentration + ' identified as : ' + str(self.taggedSpectrums[distance.cdist([(ns[0],ns[1])], self.scoresMap).argmin()].name) + '@' + str(self.taggedSpectrums[distance.cdist([(ns[0],ns[1])], self.scoresMap).argmin()].concentration))
-
-	# def identify(self, spectrum):
-	# 	"""
-	# 	Tries to match spectrum with the model and returns the closest candidate
-	# 	"""
-	# 	candidateValues = numpy.array([spectrum.getAbsorbance(wavelength) for wavelength in self.wavelengthRange])
-	# 	# Center learning values by its mean
-	# 	candidateValues_centered = numpy.array([value - numpy.mean(candidateValues) for value in candidateValues])
-	# 	ns = numpy.dot(candidateValues_centered,self.loading)
-	# 	ns = numpy.real(ns)
-	# 	print(spectrum.name + '@' + spectrum.concentration + ' identified as : ' + str(self.taggedSpectrums[distance.cdist([(ns[0],ns[1])], self.scoresMap).argmin()].name) + '@' + str(self.taggedSpectrums[distance.cdist([(ns[0],ns[1])], self.scoresMap).argmin()].concentration))
-	#
-	# 	# nClosestNeighbours = [self.taggedSpectrums[index] for index in distance.cdist([(ns[0],ns[1])], self.scoresMap).argsort()[:5]]
-	# 	sortedIndexes = distance.cdist([(ns[0],ns[1])], self.scoresMap).argsort()[0][:10]
-	# 	print('The closests neighbours are : ')
-	# 	for index in sortedIndexes:
-	# 		print(str(self.taggedSpectrums[index].name) + '@' + str(self.taggedSpectrums[index].concentration) + '_#' + str(self.taggedSpectrums[index].indice) + 'distance = ' + str(distance.cdist([(ns[0],ns[1])], self.scoresMap)[0][index]))
-	#
-	# 	# Plot learningValus map
-	# 	for counter, x in enumerate(self.scoresMap):
-	# 		plt.scatter(x.item(0), x.item(1), c=numpy.random.rand(3,1), label = self.taggedSpectrums[counter].name, s=200)
-	# 		plt.text(x.item(0), x.item(1),str(self.taggedSpectrums[counter].name) + '@' + str(self.taggedSpectrums[counter].concentration) + '_#' + str(self.taggedSpectrums[counter].indice))
-	#
-	# 	## PLOT RESULT
-	# 	plt.scatter(ns[0],ns[1],c=numpy.random.rand(3,1), label = "candidate", marker="H", s=400)
-	# 	plt.grid(True)
-	# 	plt.show()
-		
-		# must return a TaggedSpectrum with the same points as the given spectrum, but with a tag and indice
 		
 		"""
 		self.largestIndiceByTagKey[idetifiedTag] += 1
